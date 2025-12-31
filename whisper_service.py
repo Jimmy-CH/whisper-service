@@ -1,14 +1,23 @@
 import os
 import tempfile
-import whisper
-from fastapi import FastAPI, HTTPException
+import whisper     # noqa
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Optional
 import requests
 
 app = FastAPI(title="Whisper ASR for Label Studio")
 # 可改为 small/medium/large
-model = whisper.load_model("/app/models/base.pt")
+model = whisper.load_model("/app/models/base.pt", device="cpu")
+
+
+LABEL_STUDIO_URL = os.getenv("LABEL_STUDIO_URL", "http://label-studio:8080")
+
+
+def get_audio_url(raw_url):
+    if raw_url.startswith("/"):
+        return LABEL_STUDIO_URL + raw_url
+    return raw_url  # 已是完整 URL
 
 
 class PredictionRequest(BaseModel):
@@ -28,32 +37,37 @@ def setup(config: dict):
 
 @app.post("/predict")
 def predict(request: PredictionRequest):
-    results = []
+    predictions = []
     for task in request.tasks:
-        audio_url = task["data"]["audio"]
+        # task 是 dict，可以 .get()
+        audio_url = get_audio_url(task["data"]["audio"])
+        if not audio_url:
+            predictions.append({"result": []})
+            continue
+
         try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                 tmp_path = tmp.name
 
             if audio_url.startswith(("http://", "https://")):
-                resp = requests.get(audio_url)
+                resp = requests.get(audio_url, timeout=30)
                 resp.raise_for_status()
                 with open(tmp_path, "wb") as f:
                     f.write(resp.content)
             else:
                 tmp_path = audio_url
 
-            result = model.transcribe(tmp_path, language="zh")
-            transcription = result["text"].strip()
+            transcription = model.transcribe(tmp_path, language="zh")["text"].strip()
 
-            results.append({
+            # 构造符合规范的 prediction
+            predictions.append({
                 "result": [{
                     "from_name": "transcription",
                     "to_name": "audio",
                     "type": "textarea",
-                    "value": {"text": [transcription]}
+                    "value": {"text": [transcription]}  # 注意：是列表！
                 }],
-                "score": 0.9
+                "score": 0.95
             })
 
             if audio_url.startswith(("http://", "https://")):
@@ -61,6 +75,7 @@ def predict(request: PredictionRequest):
 
         except Exception as e:
             print(f"Error: {e}")
-            results.append({"result": []})
+            predictions.append({"result": []})
 
-    return results
+    # 直接返回 list，不要包装！
+    return predictions
