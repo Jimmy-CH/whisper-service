@@ -7,7 +7,7 @@ from typing import List, Optional
 import requests
 
 app = FastAPI(title="Whisper ASR for Label Studio")
-
+# 可改为 small/medium/large
 model = whisper.load_model("/app/models/base.pt")
 
 
