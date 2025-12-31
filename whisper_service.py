@@ -51,7 +51,7 @@ def predict(request: PredictionRequest):
     predictions = []
     for task in request.tasks:
         try:
-            logical_audio_path = task["data"]["audio"]  # e.g., "/data/upload/5/xxx.mp3"
+            logical_audio_path = task["data"]["audio"]
             actual_audio_path = resolve_local_audio_path(logical_audio_path)
 
             if not os.path.exists(actual_audio_path):
@@ -77,5 +77,8 @@ def predict(request: PredictionRequest):
             logger.error(f"Error processing task: {e}", exc_info=True)
             predictions.append({"result": []})
     print('[predictions]:', predictions)
-    return predictions
+    # 必须返回 dict，包含 "results" 键
+    return {"results": predictions}
+
+
 
