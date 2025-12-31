@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com
 # RUN pip install --no-cache-dir -r requirements.txt
 # 复制应用代码
 COPY whisper_service.py .
+COPY models/ ./models/
 # 暴露端口
 EXPOSE 9090
 # 启动命令
