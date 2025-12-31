@@ -1,5 +1,4 @@
-# download_model.py
-import whisper
+import whisper  # noqa
 
 print("正在下载 base 模型...")
 # 可改为 small/medium/large/base
